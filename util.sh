@@ -7,6 +7,8 @@ exec >&2
 ###########
 STOPONWARN="N"
 
+UTIL_PREFIX=""
+
 ###########
 # Colors  #
 ###########
@@ -42,7 +44,7 @@ coloralert()
 ###################
 warn()
 {
-    echo "[W] $(coloryellow "$1")"
+    echo "[W${UTIL_PREFIX}] $(coloryellow "$1")"
 
     if [ "x$STOPONWARN" = "xy" ] || [ "x$STOPONWARN" = "xY" ] ; then
         echo "Is this cool? <press enter to be cool | press CTRL-C to be uncool>"
@@ -63,26 +65,26 @@ isdebug()
 
 debug()
 {
-    isdebug && echo "[D] $1"
+    isdebug && echo "[D${UTIL_PREFIX}] $1"
 }
 
 alrt()
 {
-    echo "[A] $(coloralert "$1")"
+    echo "[A${UTIL_PREFIX}] $(coloralert "$1")"
 }
 
 info()
 {
         if [ -n "$2" ] ; then
-            echo "[*] $1" | tee -a $2
+            echo "[*${UTIL_PREFIX}] $1" | tee -a $2
         else
-            echo "[*] $1"
+            echo "[*${UTIL_PREFIX}] $1"
         fi
 }
 
 fail()
 {
-        echo "[F] $(colorred "$1")"
+        echo "[F${UTIL_PREFIX}] $(colorred "$1")"
         exit 1
 }
 
