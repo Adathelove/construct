@@ -7,6 +7,8 @@ exec >&2
 ###########
 STOPONWARN="N"
 
+STOPONBANN="N"
+
 UTIL_PREFIX=""
 
 ###########
@@ -18,6 +20,11 @@ COLOR_GREEN=$(tput setaf 2)
 COLOR_LIGHT_BLUE=$(tput setaf 6)
 COLOR_NONE=$(tput sgr0)
 COLORALERT=$COLOR_LIGHT_BLUE
+
+get_script_namespace()
+{
+    echo ":$(basename $(pwd))/$(basename $0)"
+}
 
 colorgreen()
 {
@@ -39,12 +46,68 @@ coloralert()
     echo  -en $COLORALERT"$1"$COLOR_NONE
 }
 
+AliasRemnantsFile=AliasRemnants.sh
+function AliasRemnantsGenerator ()
+{
+    if warn_if_not_exists "${AliasRemnantsFile}" ; then
+        return 0
+    else
+        echo info "AliasRemnants file does not exist ${AliasRemnantsFile}"
+        echo info "Creating it"
+    fi
+	cat <<- EOF > ${AliasRemnantsFile}
+	alias ula="uls \\\${FUNCNAME[0]}"
+	alias ulg="GLOBAL_SCRIPT_NAME=\$0"
+	#shopt -s expand_aliases
+	#GLOBAL_SCRIPT_NAME="$0"
+	EOF
+}
+function AliasRemnantSource()
+{
+    AliasRemnantsGenerator
+    source $AliasRemnantsFile
+}
+
+
+# Util Log Set
+function uls()
+{
+    UTIL_UL_PREFIX_OLD=$UTIL_UL_PREFIX
+    UTIL_UL_PREFIX_NEW="$1"
+    if [ -z "${UTIL_UL_PREFIX_NEW}" ] ; then
+        UTIL_UL_PREFIX_NEW="${GLOBAL_SCRIPT_NAME}"
+    fi
+    UTIL_UL_PREFIX="$UTIL_UL_PREFIX_NEW"
+}
+
+# Util Log Reset
+function ulr()
+{
+    UTIL_UL_PREFIX_NEW=""
+    UTIL_UL_PREFIX="$UTIL_UL_PREFIX_OLD"
+    UTIL_UL_PREFIX_OLD=""
+}
+
+# Util Log
+function ull()
+{
+    # is_includer_debug || return 0
+
+    string1="$1 ${UTIL_UL_PREFIX}"
+    shift
+    string2="$*"
+    padding="                                     "                                  #  PADDING SPACES #
+    printf "%s%s %s\n" "$string1" "${padding:${#string1}}" "$string2"
+
+}
+
+
 ###################
 # informing users #
 ###################
 warn()
 {
-    echo "[W${UTIL_PREFIX}] $(coloryellow "$1")"
+    ull "[W]" "$(coloryellow "$*")"
 
     if [ "x$STOPONWARN" = "xy" ] || [ "x$STOPONWARN" = "xY" ] ; then
         echo "Is this cool? <press enter to be cool | press CTRL-C to be uncool>"
@@ -65,32 +128,70 @@ isdebug()
 
 debug()
 {
-    isdebug && echo "[D${UTIL_PREFIX}] $1"
+    isdebug && ull "[D]" "$*"
 }
 
 alrt()
 {
-    echo "[A${UTIL_PREFIX}] $(coloralert "$1")"
+    ull "[A] $(coloralert "$*")"
 }
 
 info()
 {
         if [ -n "$2" ] ; then
-            echo "[*${UTIL_PREFIX}] $1" | tee -a $2
+            ull "[*]" "$1" | tee -a $2
         else
-            echo "[*${UTIL_PREFIX}] $1"
+            ull "[*]" "$*"
         fi
 }
 
 fail()
 {
-        echo "[F${UTIL_PREFIX}] $(colorred "$1")"
+        ull "[F]" "$(colorred "$*")"
         exit 1
 }
 
-################
-# Common logic #
-################
+success()
+{
+        ull "[S]" "$(colorgreen "$*")"
+        return 0
+}
+
+#######################
+# Common string logic #
+#######################
+
+fail_if_empty_string()
+{
+    local the_string=$1
+    local ret=1
+    if [ -z "$the_string" ] ; then
+        fail "$FUNCNAME: found empty string"
+        ret=$?
+    else
+        debug "$FUNCNAME: found string \"$the_string\""
+        ret=0
+    fi
+    return $ret
+}
+
+warn_if_empty_string()
+{
+    local the_string=$1
+    local ret=1
+    if [ -z "$the_string" ] ; then
+        warn "$FUNCNAME: found empty string"
+        local ret=$?
+    else
+        debug "$FUNCNAME: found string \"$the_string\""
+        local ret=0
+    fi
+    return $ret
+}
+
+#####################
+# Common file logic #
+#####################
 
 warn_if_exists()
 {
@@ -116,7 +217,12 @@ warn_if_not_exists()
     if [ -z "$THEFILE" ] ; then
         fail "No file supplied to $FUNCNAME"
     fi
-    [ ! -e $THEFILE ] && warn "File does not exist as expected: \"$THEFILE\""
+    if [ ! -e $THEFILE ] ; then
+        warn "File does not exist as expected: \"$THEFILE\""
+        return 1
+    else
+        return 0
+    fi
 }
 
 fail_if_not_file()
@@ -236,7 +342,7 @@ ask_force()
 	return 1
 }
 
-if_yes()
+ask_user_default_yes()
 {
     msg="$1"
     if [ -z "$msg" ] ; then
@@ -246,7 +352,7 @@ if_yes()
 	ask_user "$msg" "Y"
 }
 
-if_no()
+ask_user_default_no()
 {
     msg="$1"
     if [ -z "$msg" ] ; then
@@ -255,6 +361,7 @@ if_no()
     fi
 	ask_user "$msg" "N"
 }
+
 if_force_yesno()
 {
     msg="$1"
@@ -267,12 +374,14 @@ if_force_yesno()
 
 bann()
 {
-        echo "=== $(colorgreen "$1") ==="
-        if if_yes "Do you wish to continue" ; then
+    echo "=== $(colorgreen "$1") ==="
+    if [ "x$STOPONBANN" = "xy" ] || [ "x$STOPONBANN" = "xY" ] ; then
+        if ask_user_default_yes "Do you wish to continue" ; then
             debug "Running next set of commands"
         else
             fail "User selected to exit"
         fi
+    fi
 
 }
 
