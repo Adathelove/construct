@@ -10,8 +10,9 @@
 
 # Control vars to source script
 SYSTEM_INSTALL="."                                                                                                                                                                                                 
-AWS_LIB=aws_lib
-INCLUDER_PATH="$SYSTEM_INSTALL:$AWS_LIB"
+# our_lib = some lib code that's specific to your needs
+OUR_LIB=our_lib
+INCLUDER_PATH="$SYSTEM_INSTALL:$OUR_LIB"
 
 # Source include guard script
 source $SYSTEM_INSTALL/includer.sh
